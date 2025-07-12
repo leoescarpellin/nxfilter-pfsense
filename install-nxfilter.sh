@@ -24,37 +24,22 @@ if [ -z "$NXFILTER_VERSION" ]; then
     * ) exit 1;;
   esac
 fi
+
 NXFILTER_SOFTWARE_URI="http://pub.nxfilter.org/nxfilter-${NXFILTER_VERSION}.zip"
+SERVICE_SCRIPT_PATH="/usr/local/etc/rc.d/nxfilter"
 
-# service script
-SERVICE_SCRIPT_URI="https://raw.githubusercontent.com/DeepWoods/nxfilter-pfsense/master/rc.d/nxfilter.sh"
+# Temporarily enable FreeBSD repository safely
+echo "Temporarily enabling FreeBSD repository..."
+sed -i '' 's/enabled: no/enabled: yes/' /usr/local/etc/pkg/repos/FreeBSD.conf
+sed 's/enabled: no/enabled: yes/' /usr/local/etc/pkg/repos/pfSense.conf > /tmp/pfSense.conf.tmp && \
+mv /tmp/pfSense.conf.tmp /usr/local/etc/pkg/repos/pfSense.conf
 
-
-# If pkg-ng is not yet installed, bootstrap it:
-if ! /usr/sbin/pkg -N 2> /dev/null; then
-  echo "FreeBSD pkgng not installed. Installing..."
-  env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg bootstrap
-  echo " ok"
-fi
-
-# If installation failed, exit:
-if ! /usr/sbin/pkg -N 2> /dev/null; then
-  echo "ERROR: pkgng installation failed. Exiting."
-  exit 1
-fi
-
-# Determine this installation's Application Binary Interface
-ABI=`/usr/sbin/pkg config abi`
-
-# FreeBSD package source:
-FREEBSD_PACKAGE_URL="https://pkg.freebsd.org/${ABI}/latest/"
-
-# FreeBSD package list:
-FREEBSD_PACKAGE_LIST_URL="${FREEBSD_PACKAGE_URL}packagesite.pkg"
+env ASSUME_ALWAYS_YES=YES pkg update -f
 
 # Stop NxFilter if it's already running
-if [ -f /usr/local/etc/rc.d/nxfilter.sh ]; then
-  if [ ! -z "$(ps ax | grep "/usr/local/nxfilter/nxd.jar" | grep -v grep | awk '{ print $1 }')" ]; then
+if [ -f "$SERVICE_SCRIPT_PATH" ]; then
+  PID=$(ps ax | grep "/usr/local/nxfilter/nxd.jar" | grep -v grep | awk '{ print $1 }')
+  if [ ! -z "$PID" ]; then
     echo -n "Stopping the NxFilter service..."
     /usr/sbin/service nxfilter.sh stop
     echo " ok"
@@ -84,6 +69,7 @@ fi
 
 if [ $(grep -c proc /etc/fstab) -eq 0 ]; then
   echo -n "Adding procfs filesystem to /etc/fstab..."
+  mkdir /proc
   echo -e "proc\t\t\t/proc\t\tprocfs\trw\t\t0\t0" >> /etc/fstab
   echo " ok"
 fi
@@ -94,67 +80,27 @@ echo -n "Mounting new filesystems..."
 echo " ok"
 
 # Install OpenJDK JRE and dependencies:
-# -F skips a package if it's already installed, without throwing an error.
-echo "Installing required packages..."
+echo "Checking if openjdk8 is already installed..."
 
-fetch ${FREEBSD_PACKAGE_LIST_URL}
-tar vfx packagesite.pkg
+INSTALLED_VERSION=$(pkg info -x openjdk8-jre 2>/dev/null | awk '{print $1}' | cut -d'-' -f3)
+AVAILABLE_VERSION=$(pkg rquery '%v' openjdk8-jre 2>/dev/null)
 
-AddPkg () {
- 	pkgname=$1
-	pkg unlock -yq $pkgname
- 	pkginfo=`grep "\"name\":\"$pkgname\"" packagesite.yaml`
- 	pkgvers=`echo $pkginfo | pcregrep -o1 '"version":"(.*?)"' | head -1`
-	pkgurl="${FREEBSD_PACKAGE_URL}`echo $pkginfo | pcregrep -o1 '"path":"(.*?)"' | head -1`"
+if [ "$INSTALLED_VERSION" = "$AVAILABLE_VERSION" ]; then
+  echo "openjdk8 version $INSTALLED_VERSION is already installed."
+else
+  echo "Installing openjdk8 version $AVAILABLE_VERSION..."
+  env ASSUME_ALWAYS_YES=YES pkg install -y openjdk8-jre || {
+    echo "Failed to install openjdk8. Aborting."
+    exit 1
+  }
+fi
 
-	# compare version for update/install
- 	if [ `pkg info | grep -c $pkgname-$pkgvers` -eq 1 ]; then
-	  echo "Package $pkgname-$pkgvers already installed."
-	else
-	  env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add -f "$pkgurl"
+# Restore original repos
+echo "Restoring original repos..."
+sed -i '' 's/enabled: yes/enabled: no/' /usr/local/etc/pkg/repos/FreeBSD.conf
+rm -f /usr/local/etc/pkg/repos/pfSense.conf && ln -s /usr/local/etc/pfSense/pkg/repos/pfSense-repo-0000.conf /usr/local/etc/pkg/repos/pfSense.conf
 
-	  # if update openjdk8 then force detele snappyjava to reinstall for new version of openjdk
-	  #if [ "$pkgname" == "openjdk8" ]; then
-	  #  pkg unlock -yq snappyjava
-	  #  env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg delete snappyjava
-    	  #fi
-  	fi
-	pkg lock -yq $pkgname
-}
-
-#Add the following Packages for installation or reinstallation (if something was removed)
-AddPkg brotli
-AddPkg png
-AddPkg freetype2
-AddPkg fontconfig
-AddPkg alsa-lib
-AddPkg libfontenc
-AddPkg mkfontscale
-AddPkg dejavu
-AddPkg giflib
-AddPkg xorgproto
-AddPkg libXdmcp
-AddPkg libXau
-AddPkg libxcb
-AddPkg libICE
-AddPkg libSM
-AddPkg libX11
-AddPkg libXfixes
-AddPkg libXext
-AddPkg libXi
-AddPkg libXt
-AddPkg libXtst
-AddPkg libXrender
-AddPkg libinotify
-AddPkg javavmwrapper
-AddPkg java-zoneinfo
-#AddPkg expat
-#AddPkg libxml2
-AddPkg openjdk8
-
-# Clean up downloaded package manifest:
-rm packagesite.*
-echo " ok"
+env ASSUME_ALWAYS_YES=YES pkg update -f
 
 # Switch to a temp directory for the NxFilter download:
 cd `mktemp -d -t nxfilter`
@@ -169,11 +115,9 @@ echo -n "Installing NxFilter in /usr/local/nxfilter..."
 /usr/bin/tar zxf nxfilter-${NXFILTER_VERSION}.zip -C /usr/local/nxfilter
 echo " ok"
 
-# Fetch the service script from github:
+# Create service script on rc.d
 echo -n "Creating nxfilter.sh service script in /usr/local/etc/rc.d/ ..."
-#/usr/bin/fetch -o /usr/local/etc/rc.d/nxfilter.sh ${SERVICE_SCRIPT_URI}
-# Create the file instead.
-/bin/cat <<"EOF" >/usr/local/etc/rc.d/nxfilter.sh
+/bin/cat << "EOF" > $SERVICE_SCRIPT_PATH
 #!/bin/sh
 
 # REQUIRE: FILESYSTEMS NETWORKING
@@ -259,7 +203,7 @@ echo " ok"
 
 # add execute permissions
 echo -n "Setting execute permissons for scripts..."
-chmod +x /usr/local/etc/rc.d/nxfilter.sh
+chmod +x $SERVICE_SCRIPT_PATH
 chmod +x /usr/local/nxfilter/bin/*.sh
 echo " ok"
 
@@ -275,7 +219,7 @@ fi
 # Restore the backup configuration:
 if [ ! -z "${BACKUPFILE}" ] && [ -f ${BACKUPFILE} ]; then
   echo "Restoring NxFilter config..."
-  mv /usr/local/nxfilter/conf /usr/local/nxfilter/conf-`date +%Y%m%d-%H%M`
+  cp /usr/local/nxfilter/conf /usr/local/nxfilter/conf-`date +%Y%m%d-%H%M`
   /usr/bin/tar -vxzf ${BACKUPFILE} -C /
 fi
 
