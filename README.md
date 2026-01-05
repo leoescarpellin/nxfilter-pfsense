@@ -13,15 +13,6 @@ Status
 
 The project provides an rc script to start and stop the NxFilter service and an installation script to automatically download and install everything, including the startup script.
 
-Compatibility
--------------
-
-The script is known to work on FreeBSD-based systems, including pfSense, OPNsense, FreeNAS, and more.
-
-> **Warning**This script *will destroy* a legacy BIOS system booting from an MBR formatted ZFS root volume; see [#168](https://github.com/unofficial-unifi/unifi-pfsense/issues/168). Again, using this script on a system with an MBR formatted ZFS root volume will break your system. It appears that one of the dependency packages may cause this. We have not isolated which. To avoid this problem, use UEFI mode if available, use GPT partitions, or use a filesystem other than ZFS.
-> 
-:bangbang:If you have already set up your system to use legacy BIOS, MBR partitons, and ZFS, then **do not run this script.**:bangbang:
-
 Challenges
 ----------
 
@@ -40,7 +31,6 @@ Upgrading
 ------------------
 
 At the very least, backup your configuration before proceeding.
-
 Be sure to track NxFilter's release notes for information on the changes and what to expect. Proceed with caution.
 
 Usage
@@ -55,7 +45,7 @@ To install NxFilter and the rc startup script:
 5. Run these commands, which downloads the install script from this Github repository and then executes it with sh:
 
   ```
-    curl -L -D 'https://raw.githubusercontent.com/leoescarpellin/nxfilter-pfsense/master/install-nxfilter.sh'
+    fetch 'https://raw.githubusercontent.com/leoescarpellin/nxfilter-pfsense/master/install-nxfilter.sh'
     sh install-nxfilter.sh
   ```
 
@@ -69,14 +59,14 @@ To start and stop NxFilter, use the `service` command from the command line.
 - To start NxFilter:
 
   ```
-    service nxfilter.sh start
+    service nxfilter start
   ```
   NxFilter takes a minute or two to start the web interface. The 'start' command exits immediately while the startup continues in the background.
 
 - To stop NxFilter:
 
   ```
-    service nxfilter.sh stop
+    service nxfilter stop
   ```
 
 Troubleshooting
@@ -123,21 +113,25 @@ Uninstalling therefore means one of two things:
 2. Remove the NxFilter software and rc script:
     ```
       rm -rf /usr/local/nxfilter
-      rm /usr/local/etc/rc.d/nxfilter.sh
+      rm /usr/local/etc/rc.d/nxfilter
     ```
 
 ### Removing the dependency packages
 
-To remove the packages that were installed by this script, you can go through the list of packages that were installed and remove them (look for the AddPkg lines). You will have to determine for yourself whether anything else on your system might still be using the packages installed by this script. Removing a package that is in use by something else will break that and other thing.
+To remove the packages installed by this script, you primarily need to uninstall the Java Runtime Environment.
 
-> **Note** that, on pfSense, all of them will probably be removed anyway the next time you update pfSense.
->
+**Warning:** Before running the commands below, ensure that no other packages on your system (e.g., UniFi Controller, Elasticsearch) rely on Java. Removing OpenJDK will break them.
+
+To remove the main Java package:
+
+```
+pkg delete openjdk17-jre
+```
 
 Contributing
 ------------
 
 By all means, feel free to contribute!  
-
 
 Licensing
 ---------
