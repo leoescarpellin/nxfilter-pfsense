@@ -55,7 +55,7 @@ To install NxFilter and the rc startup script:
 5. Run these commands, which downloads the install script from this Github repository and then executes it with sh:
 
   ```
-    curl -L -O 'https://raw.githubusercontent.com/DeepWoods/nxfilter-pfsense/master/install-nxfilter.sh' 
+    curl -L -D 'https://raw.githubusercontent.com/leoescarpellin/nxfilter-pfsense/master/install-nxfilter.sh'
     sh install-nxfilter.sh
   ```
 
