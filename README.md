@@ -104,7 +104,7 @@ This script does three things:
 3. Install an rc script so that the NxFilter softward can be started and stopped with `service`
 
 Uninstalling therefore means one of two things:
-- Removing the NxFilter software at `/usr/local/nxfilter` and removing the rc script at `/usr/local/etc/rc.d/nxfilter.sh`
+- Removing the NxFilter software at `/usr/local/nxfilter` and removing the rc script at `/usr/local/etc/rc.d/nxfilter`
 - Removing the dependency packages that were installed
 
 ### Uninstall the NxFilter software
