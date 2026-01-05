@@ -175,7 +175,7 @@ nxfilter_start()
     while [ "$x" -le 15 ];
     do
       # Procura pelo processo nxd.jar
-      PID=$(ps ax | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
+      PID=$(ps axww | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
       if [ ! -z "$PID" ]; then
         # Achou! Sai do loop
         break
@@ -187,7 +187,7 @@ nxfilter_start()
 
     # ### VALIDAÇÃO 2: Confere o resultado final ###
     # Verifica novamente se pegamos um PID válido
-    PID=$(ps ax | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
+    PID=$(ps axww | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
     
     if [ ! -z "$PID" ]; then
       echo "$PID" > $pidfile
