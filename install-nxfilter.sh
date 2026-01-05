@@ -41,7 +41,7 @@ if [ -f "$SERVICE_SCRIPT_PATH" ]; then
   PID=$(ps ax | grep "/usr/local/nxfilter/nxd.jar" | grep -v grep | awk '{ print $1 }')
   if [ ! -z "$PID" ]; then
     echo -n "Stopping the NxFilter service..."
-    /usr/sbin/service nxfilter.sh stop
+    /usr/sbin/service nxfilter stop
     echo " ok"
   fi
 fi
@@ -80,17 +80,17 @@ echo -n "Mounting new filesystems..."
 echo " ok"
 
 # Install OpenJDK JRE and dependencies:
-echo "Checking if openjdk8 is already installed..."
+echo "Checking if openjdk17 is already installed..."
 
-INSTALLED_VERSION=$(pkg info -x openjdk8-jre 2>/dev/null | awk '{print $1}' | cut -d'-' -f3)
-AVAILABLE_VERSION=$(pkg rquery '%v' openjdk8-jre 2>/dev/null)
+INSTALLED_VERSION=$(pkg info -x openjdk17-jre 2>/dev/null | awk '{print $1}' | cut -d'-' -f3)
+AVAILABLE_VERSION=$(pkg rquery '%v' openjdk17-jre 2>/dev/null)
 
 if [ "$INSTALLED_VERSION" = "$AVAILABLE_VERSION" ]; then
-  echo "openjdk8 version $INSTALLED_VERSION is already installed."
+  echo "openjdk17 version $INSTALLED_VERSION is already installed."
 else
-  echo "Installing openjdk8 version $AVAILABLE_VERSION..."
-  env ASSUME_ALWAYS_YES=YES pkg install -y openjdk8-jre || {
-    echo "Failed to install openjdk8. Aborting."
+  echo "Installing openjdk17 version $AVAILABLE_VERSION..."
+  env ASSUME_ALWAYS_YES=YES pkg install -y openjdk17-jre || {
+    echo "Failed to install openjdk17. Aborting."
     exit 1
   }
 fi
@@ -116,7 +116,7 @@ echo -n "Installing NxFilter in /usr/local/nxfilter..."
 echo " ok"
 
 # Create service script on rc.d
-echo -n "Creating nxfilter.sh service script in /usr/local/etc/rc.d/ ..."
+echo -n "Creating nxfilter service script in /usr/local/etc/rc.d/ ..."
 /bin/cat << "EOF" > $SERVICE_SCRIPT_PATH
 #!/bin/sh
 
@@ -224,5 +224,5 @@ if [ ! -z "${BACKUPFILE}" ] && [ -f ${BACKUPFILE} ]; then
 fi
 
 echo "Running the NxFilter service..."
-/usr/sbin/service nxfilter.sh start
+/usr/sbin/service nxfilter start
 echo "All done!"
