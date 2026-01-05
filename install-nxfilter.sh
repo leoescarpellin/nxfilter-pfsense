@@ -144,6 +144,12 @@ pidfile="/var/run/${name}.pid"
 nxfilter_start()
 {
   if checkyesno ${rcvar}; then
+    # ### VALIDAÇÃO 1: Checa se o Java existe antes de tentar ###
+    if [ ! -x "/usr/local/bin/java" ] && [ ! -x "/usr/bin/java" ]; then
+      echo " ERROR: Java not found! Please install OpenJDK."
+      return 1
+    fi
+
     # check for leftover pid file
     if [ -f $pidfile ]; then
       # check if file contains something
@@ -161,21 +167,35 @@ nxfilter_start()
     fi 
 
     echo "Starting NxFilter..."
-    /usr/local/nxfilter/bin/startup.sh -d &
+    /usr/local/nxfilter/bin/startup.sh -d >/dev/null 2>&1 &
+    
     # wait for process to start before adding pid to file
     x=1
+    # Loop de espera (15 segundos)
     while [ "$x" -le 15 ];
     do
-      ps | grep 'nxd.jar' | grep -v grep >/dev/null
-      if [ $? -eq 0 ]; then
+      # Procura pelo processo nxd.jar
+      PID=$(ps ax | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
+      if [ ! -z "$PID" ]; then
+        # Achou! Sai do loop
         break
       fi
       echo -n "."
       sleep 1
       x=$(( x + 1 ))
     done
-    echo `ps | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }'` > $pidfile
-    echo " OK"   
+
+    # ### VALIDAÇÃO 2: Confere o resultado final ###
+    # Verifica novamente se pegamos um PID válido
+    PID=$(ps ax | grep 'nxd.jar' | grep -v grep | awk '{ print $1 }')
+    
+    if [ ! -z "$PID" ]; then
+      echo "$PID" > $pidfile
+      echo " OK"
+    else
+      echo " FAILED (Process did not start. Check logs at /usr/local/nxfilter/log)"
+      return 1
+    fi   
   fi
 }
 
