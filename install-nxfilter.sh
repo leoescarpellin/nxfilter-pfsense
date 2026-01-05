@@ -36,6 +36,9 @@ mv /tmp/pfSense.conf.tmp /usr/local/etc/pkg/repos/pfSense.conf
 
 env ASSUME_ALWAYS_YES=YES pkg update -f
 
+echo "Locking 'pkg' package to prevent system breakage..."
+env ASSUME_ALWAYS_YES=YES pkg lock -y pkg
+
 # Stop NxFilter if it's already running
 if [ -f "$SERVICE_SCRIPT_PATH" ]; then
   PID=$(ps ax | grep "/usr/local/nxfilter/nxd.jar" | grep -v grep | awk '{ print $1 }')
@@ -91,9 +94,14 @@ else
   echo "Installing openjdk17 version $AVAILABLE_VERSION..."
   env ASSUME_ALWAYS_YES=YES pkg install -y openjdk17-jre || {
     echo "Failed to install openjdk17. Aborting."
+    # Unlocking 'pkg' package
+    env ASSUME_ALWAYS_YES=YES pkg unlock -y pkg
     exit 1
   }
 fi
+
+# Unlocking 'pkg' package...
+env ASSUME_ALWAYS_YES=YES pkg unlock -y pkg
 
 # Restore original repos
 echo "Restoring original repos..."
